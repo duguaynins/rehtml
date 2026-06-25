@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nins / reHTML.SYS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Courier New', 'Consolas', monospace;
+  background: #fff; color: #000; height: 100vh; display: flex; flex-direction: column;
+  cursor: default;
+}
+::selection { background: #000; color: #fff; }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #eee; }
+::-webkit-scrollbar-thumb { background: #000; border-radius: 0; }
+
+.toolbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; background: #fff;
+  border-bottom: 3px double #000; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 10;
+}
+.toolbar h1 {
+  font-size: 0.75rem; color: #000; margin-right: 8px;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 2px 6px; border: 1px solid #000;
+}
+.toolbar .cursor-blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.btn {
+  background: #fff; color: #000; border: 2px solid #000;
+  padding: 5px 12px; cursor: pointer; font-size: 0.7rem;
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase; letter-spacing: 1px;
+  transition: none; font-weight: bold;
+}
+.btn:hover { background: #000; color: #fff; }
+.btn:active { background: #333; }
+.btn.outline { opacity: .7; }
+.btn.outline:hover { opacity: 1; background: #000; color: #fff; }
+
+.upload-label {
+  color: #000; font-size: 0.7rem; cursor: pointer;
+  padding: 5px 10px; border: 2px solid #000; opacity: .7;
+  text-transform: uppercase; letter-spacing: 1px; font-weight: bold;
+}
+.upload-label:hover { opacity: 1; background: #000; color: #fff; }
+.upload-label input { display: none; }
+#fileName { color: #000; font-size: 0.65rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .7; margin-left: 4px; padding: 2px 6px; border: 1px dashed #000; }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.editor-panel, .preview-panel { display: flex; flex-direction: column; min-height: 200px; flex: 1; }
+.editor-panel { border-bottom: 3px double #000; }
+
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: #e8e8e8; border-bottom: 2px solid #000;
+  font-size: 0.7rem; color: #000; text-transform: uppercase; letter-spacing: 1px;
+  font-weight: bold;
+}
+.panel-header .count { opacity: .6; }
+
+textarea {
+  flex: 1; background: #fff; color: #000;
+  border: none; outline: none; padding: 12px;
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 13px; line-height: 1.5; resize: none; tab-size: 2;
+}
+textarea:focus { background: #fff; }
+textarea::placeholder { color: #000; opacity: .2; }
+
+#preview { flex: 1; background: #fff; border: none; }
+
+.statusbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: #e8e8e8;
+  border-top: 3px double #000;
+  font-size: 0.65rem; color: #000; text-transform: uppercase; letter-spacing: 1px;
+  font-weight: bold;
+}
+.statusbar .blink { animation: blink 1s step-end infinite; }
+
+.error-msg {
+  display: none; padding: 8px 12px;
+  background: #fff; color: #000;
+  font-size: 0.7rem; border-bottom: 3px double #000;
+  font-weight: bold;
+}
+.error-msg.show { display: block; }
+
+@media (min-width: 768px) {
+  .toolbar h1 { font-size: 0.85rem; }
+  textarea { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <h1>C:\&gt;<span class="cursor-blink">&#9608;</span></h1>
+  <button class="btn run" id="runBtn">&gt; RUN</button>
+  <button class="btn outline" id="resetBtn">RESET</button>
+  <button class="btn outline" id="copyBtn">COPY</button>
+  <label class="upload-label">[LOAD]<input type="file" id="fileInput" accept=".html,.htm"></label>
+  <span id="fileName"></span>
+</div>
+<div class="error-msg" id="errorMsg">ERROR</div>
+<div class="main">
+  <div class="editor-panel">
+    <div class="panel-header">
+      <span>&#62; EDITOR</span>
+      <span class="count" id="lineCount">LINES: 1</span>
+    </div>
+    <textarea id="codeEditor" placeholder="&#62; 在此輸入 HTML 程式碼...">&#x3C;!DOCTYPE html&#x3E;
+&#x3C;html&#x3E;
+&#x3C;head&#x3E;
+  &#x3C;meta charset=&#x22;UTF-8&#x22;&#x3E;
+  &#x3C;title&#x3E;我的網頁&#x3C;/title&#x3E;
+&#x3C;/head&#x3E;
+&#x3C;body&#x3E;
+  &#x3C;h1&#x3E;Hello World!&#x3C;/h1&#x3E;
+  &#x3C;p&#x3E;DOS 風格 HTML 編輯器&#x3C;/p&#x3E;
+  &#x3C;button onclick=&#x22;alert(&#x27;DOS 萬歲！&#x27;)&#x22;&#x3E;點我&#x3C;/button&#x3E;
+&#x3C;/body&#x3E;
+&#x3C;/html&#x3E;</textarea>
+  </div>
+  <div class="preview-panel">
+    <div class="panel-header">
+      <span>&#62; PREVIEW</span>
+    </div>
+    <iframe id="preview" srcdoc="<html><body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:&quot;Courier New&quot;,monospace;color:#000;background:#fff;'><div style='text-align:center'><div style='font-size:48px;opacity:.3;'>&#95;</div><p style='margin-top:8px;'>Press RUN to start</p></div></body></html>"></iframe>
+  </div>
+</div>
+<div class="statusbar">
+  <span>C:\&gt; READY</span>
+  <span>DOS HTML EDITOR v1.0</span>
+  <span id="statusTime"></span>
+</div>
+<script>
+const editor = document.getElementById('codeEditor');
+const preview = document.getElementById('preview');
+const runBtn = document.getElementById('runBtn');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const resetBtn = document.getElementById('resetBtn');
+const copyBtn = document.getElementById('copyBtn');
+const errorMsg = document.getElementById('errorMsg');
+const lineCount = document.getElementById('lineCount');
+const statusTime = document.getElementById('statusTime');
+
+const DEFAULT_CODE = editor.value;
+
+function updateLineCount() {
+  const lines = editor.value.split('\n').length;
+  lineCount.textContent = 'LINES: ' + lines;
+}
+
+function runCode() {
+  const code = editor.value;
+  if (!code.trim()) {
+    preview.srcdoc = '<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;color:#aaa;"><p>C:\\&gt; NO INPUT</p></body></html>';
+    return;
+  }
+  try {
+    preview.srcdoc = code;
+    errorMsg.classList.remove('show');
+  } catch (e) {
+    showError('EXECUTION ERROR: ' + e.message);
+  }
+}
+
+function showError(msg) {
+  errorMsg.textContent = '! ' + msg;
+  errorMsg.classList.add('show');
+}
+
+function processFile(file) {
+  if (!file.name.match(/\.html?$/i)) {
+    showError('INVALID FILE: .html ONLY');
+    return;
+  }
+  fileName.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editor.value = e.target.result;
+    updateLineCount();
+    runCode();
+  };
+  reader.onerror = () => showError('READ ERROR');
+  reader.readAsText(file);
+}
+
+editor.addEventListener('input', updateLineCount);
+
+editor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault(); runCode();
+  }
+});
+
+runBtn.addEventListener('click', runCode);
+resetBtn.addEventListener('click', () => {
+  editor.value = DEFAULT_CODE;
+  fileName.textContent = '';
+  updateLineCount();
+  runCode();
+});
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(editor.value).then(() => {
+    copyBtn.textContent = 'DONE';
+    setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
+  }).catch(() => showError('COPY FAILED'));
+});
+
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  if (f) processFile(f);
+});
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault(); runCode();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+    e.preventDefault(); fileInput.click();
+  }
+});
+
+function updateClock() {
+  const now = new Date();
+  statusTime.textContent = now.toLocaleTimeString('zh-TW', { hour12: false });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+updateLineCount();
+runCode();
+</script>
+</body>
+</html>
