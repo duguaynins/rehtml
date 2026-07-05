@@ -367,7 +367,7 @@ function processFile(file) {
     editor.value = e.target.result;
     updateLineCount();
     log('LOADED: ' + file.name, 'info');
-    runCode();
+    runCode();runCode();
   };
   reader.onerror = () => showError('READ ERROR');
   reader.readAsText(file);
