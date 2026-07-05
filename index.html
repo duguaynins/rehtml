@@ -5,6 +5,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>nins / HTML.SYS</title>
+
+
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#FFFFFF">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+
+
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -152,17 +165,21 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 <body>
 <div class="toolbar">
   <h1>C:\&gt;<span class="cursor-blink">&#9608;</span></h1>
-  <button class="btn run" id="runBtn">&gt; RUN</button>
-  <button class="btn outline" id="resetBtn">[RESET]</button>
-  <button class="btn outline" id="copyBtn">[COPY]</button>
   <button class="btn outline" id="logBtn">[LOG]</button>
+  <button class="btn outline" id="resetBtn">[RESET]</button>
+  <button class="btn outline" id="copyBtn" style="display: none;">[COPY]</button>
   <label class="upload-label">[LOAD]<input type="file" id="fileInput" accept=".html,.htm"></label>
   <span id="fileName"></span>
   <span style="flex:1"></span>
+</div>
+  
+<div class="toolbar">
+  <button class="btn run" id="runBtn">&gt; RUN</button>
   <label class="auto-check"><input type="checkbox" id="autoHideCheck" checked>AUTO</label>
   <button class="btn toggle-on" id="toggleEditorBtn">EDITOR</button>
   <button class="btn toggle-on" id="togglePreviewBtn">PREVIEW</button>
 </div>
+
 <div class="error-msg" id="errorMsg" style="display: none;">ERROR</div>
 <div class="main">
   <div class="editor-panel">
@@ -170,16 +187,16 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
       <span>&#62; EDITOR</span>
       <span class="count" id="lineCount">LINES: 1</span>
     </div>
-    <textarea id="codeEditor" placeholder="&#62; 在此輸入 HTML 程式碼...">&#x3C;!DOCTYPE html&#x3E;
+    <textarea id="codeEditor" placeholder="&#62; HTML...">&#x3C;!DOCTYPE html&#x3E;
 &#x3C;html&#x3E;
 &#x3C;head&#x3E;
   &#x3C;meta charset=&#x22;UTF-8&#x22;&#x3E;
-  &#x3C;title&#x3E;我的網頁&#x3C;/title&#x3E;
+  &#x3C;title&#x3E;NINS DOS&#x3C;/title&#x3E;
 &#x3C;/head&#x3E;
 &#x3C;body&#x3E;
-  &#x3C;h1&#x3E;Hello World!&#x3C;/h1&#x3E;
-  &#x3C;p&#x3E;DOS 風格 HTML 編輯器&#x3C;/p&#x3E;
-  &#x3C;button onclick=&#x22;alert(&#x27;DOS 萬歲！&#x27;)&#x22;&#x3E;點我&#x3C;/button&#x3E;
+  &#x3C;h1&#x3E;NINS DOS!&#x3C;/h1&#x3E;
+  &#x3C;p&#x3E;HELLO WORLD! NINS DOS STYLE HTML&#x3C;/p&#x3E;
+  &#x3C;button onclick=&#x22;alert(&#x27;DOS WORLD!!!&#x27;)&#x22;&#x3E;RUN&#x3C;/button&#x3E;
 &#x3C;/body&#x3E;
 &#x3C;/html&#x3E;</textarea>
   </div>
@@ -400,9 +417,9 @@ resetBtn.addEventListener('click', () => {
 
 copyBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(editor.value).then(() => {
-    copyBtn.textContent = 'DONE';
+    copyBtn.textContent = '[DONE]';
     log('COPY COMPLETE', 'success');
-    setTimeout(() => { copyBtn.textContent = 'COPY'; }, 2000);
+    setTimeout(() => { copyBtn.textContent = '[COPY]'; }, 2000);
   }).catch(() => showError('COPY FAILED'));
 });
 
