@@ -1,12 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="auto">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>nins / HTML.SYS</title>
-
-
 
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#FFFFFF">
@@ -15,8 +12,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
 </script>
-
-
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -66,37 +61,24 @@ body {
 .upload-label input { display: none; }
 #fileName { color: #000; font-size: 0.65rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .7; margin-left: 4px; padding: 2px 6px; border: 1px dashed #000; }
 
+.url-input {
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem; padding: 4px 8px;
+  border: 2px solid #000; background: #fff;
+  color: #000; outline: none; width: 180px;
+}
+.url-input:focus { background: #fff; }
+.url-input::placeholder { color: #000; opacity: .3; text-transform: uppercase; }
+
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-.editor-panel, .preview-panel { display: flex; flex-direction: column; min-height: 200px; flex: 1; }
-.editor-panel { border-bottom: 3px double #000; }
-.panel-hidden { display: none; }
-.btn.toggle-on { background: #000; color: #fff; }
-.btn.toggle-on:hover { background: #333; }
-.auto-check {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 0.7rem; cursor: pointer; text-transform: uppercase;
-  letter-spacing: 1px; font-weight: bold; user-select: none;
-}
-.auto-check input { margin: 0; accent-color: #000; cursor: pointer; }
-
+.preview-panel { display: flex; flex-direction: column; flex: 1; }
 .panel-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 12px; background: #e8e8e8; border-bottom: 2px solid #000;
   font-size: 0.7rem; color: #000; text-transform: uppercase; letter-spacing: 1px;
   font-weight: bold;
 }
-.panel-header .count { opacity: .6; }
-
-textarea {
-  flex: 1; background: #fff; color: #000;
-  border: none; outline: none; padding: 12px;
-  font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 13px; line-height: 1.5; resize: none; tab-size: 2;
-}
-textarea:focus { background: #fff; }
-textarea::placeholder { color: #000; opacity: .2; }
-
 #preview { flex: 1; background: #fff; border: none; }
 
 .statusbar {
@@ -116,6 +98,22 @@ textarea::placeholder { color: #000; opacity: .2; }
 }
 .error-msg.show { display: block; }
 
+.drop-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  display: none; align-items: center; justify-content: center;
+  z-index: 1000; flex-direction: column; gap: 16px;
+}
+.drop-overlay.show { display: flex; }
+.drop-overlay .drop-icon {
+  font-size: 48px; color: #fff; opacity: .5;
+  border: 4px dashed #fff; padding: 32px 64px;
+}
+.drop-overlay .drop-text {
+  font-size: 1rem; color: #fff; text-transform: uppercase;
+  letter-spacing: 2px; font-weight: bold;
+}
+
 dialog {
   border: 3px double #000; background: #fff; padding: 0;
   min-width: 360px; max-width: 500px; width: 90%;
@@ -131,7 +129,7 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
   padding: 12px; max-height: 300px; overflow-y: auto;
   font-size: 0.75rem; line-height: 1.6;
 }
-  .dialog-filters {
+.dialog-filters {
   display: flex; gap: 4px; flex-wrap: wrap;
   padding: 6px 12px; border-bottom: 1px solid #000;
   font-size: 0.65rem;
@@ -158,7 +156,6 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 
 @media (min-width: 768px) {
   .toolbar h1 { font-size: 0.85rem; }
-  textarea { font-size: 14px; }
 }
 </style>
 </head>
@@ -166,52 +163,45 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 <div class="toolbar">
   <h1>C:\&gt;<span class="cursor-blink">&#9608;</span></h1>
   <button class="btn outline" id="logBtn">[LOG]</button>
-  <button class="btn outline" id="resetBtn">[RESET]</button>
-  <button class="btn outline" id="copyBtn" style="display: none;">[COPY]</button>
   <label class="upload-label">[LOAD]<input type="file" id="fileInput" accept=".html,.htm"></label>
   <span id="fileName"></span>
+  <input style="display: none;" type="text" class="url-input" id="urlInput" placeholder="URL...">
+  <button style="display: none;" class="btn" id="urlGoBtn">&gt; GO</button>
   <span style="flex:1"></span>
 </div>
-  
-<div class="toolbar">
-  <button class="btn run" id="runBtn">&gt; RUN</button>
-  <label class="auto-check"><input type="checkbox" id="autoHideCheck" checked>AUTO</label>
-  <button class="btn toggle-on" id="toggleEditorBtn">EDITOR</button>
-  <button class="btn toggle-on" id="togglePreviewBtn">PREVIEW</button>
+
+<div class="error-msg" id="errorMsg">ERROR</div>
+<div class="main">
+  <div class="preview-panel">
+    <div class="panel-header"><span>&#62; PREVIEW</span></div>
+    <div style="padding:20px; width:100%; height:100%; background: #000;">
+      <iframe 
+          id="preview"
+          style="
+              width:100%;
+              height:100%;
+              border:8px solid #CCC;
+              border-top-width:5px;
+              border-right-width:22px;
+              border-bottom-width:5px;
+              border-left-width:22px;
+          ">
+      </iframe>
+    </div>
+  </div>
 </div>
 
-<div class="error-msg" id="errorMsg" style="display: none;">ERROR</div>
-<div class="main">
-  <div class="editor-panel">
-    <div class="panel-header">
-      <span>&#62; EDITOR</span>
-      <span class="count" id="lineCount">LINES: 1</span>
-    </div>
-    <textarea id="codeEditor" placeholder="&#62; HTML...">&#x3C;!DOCTYPE html&#x3E;
-&#x3C;html&#x3E;
-&#x3C;head&#x3E;
-  &#x3C;meta charset=&#x22;UTF-8&#x22;&#x3E;
-  &#x3C;title&#x3E;NINS DOS&#x3C;/title&#x3E;
-&#x3C;/head&#x3E;
-&#x3C;body&#x3E;
-  &#x3C;h1&#x3E;NINS DOS!&#x3C;/h1&#x3E;
-  &#x3C;p&#x3E;HELLO WORLD! NINS DOS STYLE HTML&#x3C;/p&#x3E;
-  &#x3C;button onclick=&#x22;alert(&#x27;DOS WORLD!!!&#x27;)&#x22;&#x3E;RUN&#x3C;/button&#x3E;
-&#x3C;/body&#x3E;
-&#x3C;/html&#x3E;</textarea>
-  </div>
-  <div class="preview-panel">
-    <div class="panel-header">
-      <span>&#62; PREVIEW</span>
-    </div>
-    <iframe id="preview" srcdoc="<html><body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:&quot;Courier New&quot;,monospace;color:#000;background:#fff;'><div style='text-align:center'><div style='font-size:48px;opacity:.3;'>&#95;</div><p style='margin-top:8px;'>Press RUN to start</p></div></body></html>"></iframe>
-  </div>
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-icon">&#9733;</div>
+  <div class="drop-text">DROP HTML FILE HERE</div>
 </div>
+
 <div class="statusbar">
   <span>&gt; READY</span>
-  <span>DOS HTML EDITOR v1.0</span>
+  <span>DOS HTML VIEWER v1.0</span>
   <span id="statusTime"></span>
 </div>
+
 <dialog id="logDialog">
   <div class="dialog-header">
     <span>C:\&gt; LOG</span>
@@ -224,16 +214,14 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
     <button class="btn" id="closeLogBtn">[X]</button>
   </div>
 </dialog>
+
 <script>
-const editor = document.getElementById('codeEditor');
 const preview = document.getElementById('preview');
-const runBtn = document.getElementById('runBtn');
 const fileInput = document.getElementById('fileInput');
 const fileName = document.getElementById('fileName');
-const resetBtn = document.getElementById('resetBtn');
-const copyBtn = document.getElementById('copyBtn');
+const urlInput = document.getElementById('urlInput');
+const urlGoBtn = document.getElementById('urlGoBtn');
 const errorMsg = document.getElementById('errorMsg');
-const lineCount = document.getElementById('lineCount');
 const statusTime = document.getElementById('statusTime');
 const logBtn = document.getElementById('logBtn');
 const logDialog = document.getElementById('logDialog');
@@ -242,29 +230,13 @@ const logCount = document.getElementById('logCount');
 const clearLogBtn = document.getElementById('clearLogBtn');
 const closeLogBtn = document.getElementById('closeLogBtn');
 const logFilters = document.getElementById('logFilters');
-const toggleEditorBtn = document.getElementById('toggleEditorBtn');
-const togglePreviewBtn = document.getElementById('togglePreviewBtn');
-const autoHideCheck = document.getElementById('autoHideCheck');
-const editorPanel = document.querySelector('.editor-panel');
-const previewPanel = document.querySelector('.preview-panel');
-
-let showEditor = true, showPreview = true;
-
-function togglePanel(panel, btn, stateVar) {
-  const newState = !stateVar;
-  if (!newState && ((panel === editorPanel && !showPreview) || (panel === previewPanel && !showEditor))) return;
-  panel.classList.toggle('panel-hidden', !newState);
-  btn.classList.toggle('toggle-on', newState);
-  if (panel === editorPanel) showEditor = newState;
-  else showPreview = newState;
-}
-
-toggleEditorBtn.addEventListener('click', () => togglePanel(editorPanel, toggleEditorBtn, showEditor));
-togglePreviewBtn.addEventListener('click', () => togglePanel(previewPanel, togglePreviewBtn, showPreview));
+const dropOverlay = document.getElementById('dropOverlay');
 
 const LOG_TYPES = ['error', 'info', 'success'];
 const filterState = {};
 LOG_TYPES.forEach(t => filterState[t] = true);
+
+let dragCounter = 0;
 
 function buildFilters() {
   logFilters.innerHTML = '';
@@ -289,8 +261,6 @@ function applyFilters() {
   });
 }
 
-const DEFAULT_CODE = editor.value;
-
 window.onerror = function (msg, url, line, col, err) {
   const info = (url ? url.split('/').pop() + ':' + line : '') + ' ' + msg;
   log('[SYSTEM] ' + info, 'error');
@@ -311,19 +281,20 @@ console.warn = function () {
   origConsoleWarn.apply(console, arguments);
 };
 
-function updateLineCount() {
-  const lines = editor.value.split('\n').length;
-  lineCount.textContent = 'LINES: ' + lines;
+function addBodyPadding(html) {
+  return html.replace(/<body([^>]*)>/i, (m, attrs) => {
+    const m2 = attrs.match(/style\s*=\s*(["'])(.*?)\1/i);
+    if (m2) {
+      const q = m2[1], val = m2[2];
+      return m.replace(m2[0], 'style=' + q + val + ';padding:16px' + q);
+    }
+    return '<body' + attrs + ' style="padding:16px">';
+  });
 }
 
-function runCode() {
-  const code = editor.value;
-  if (!code.trim()) {
-    preview.srcdoc = '<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;color:#aaa;"><p>C:\\&gt; NO INPUT</p></body></html>';
-    return;
-  }
-  const injected = code.includes('</head>')
-    ? code.replace('</head>', `<script>
+function loadHTML(content, source) {
+  let injected = content.includes('</head>')
+    ? content.replace('</head>', `<script>
 window.onerror = function(m, u, l) {
   parent.postMessage({ type: 'preview-error', msg: m + ' (line ' + l + ')' }, '*');
 };
@@ -337,22 +308,21 @@ window.addEventListener('unhandledrejection', function(e) {
 };
 window.addEventListener('unhandledrejection', function(e) {
   parent.postMessage({ type: 'preview-error', msg: 'Promise: ' + (e.reason.message||e.reason) }, '*');
-};` + '<\/script>' + code;
+};` + '<\/script>' + content;
+  injected = addBodyPadding(injected);
   try {
     preview.srcdoc = injected;
     errorMsg.classList.remove('show');
   } catch (e) {
     showError('EXECUTION ERROR: ' + e.message);
   }
-  if (autoHideCheck.checked) {
-    if (showEditor) {
-      if (!showPreview) togglePanel(previewPanel, togglePreviewBtn, showPreview);
-      togglePanel(editorPanel, toggleEditorBtn, showEditor);
-    } else if (showPreview) {
-      if (!showEditor) togglePanel(editorPanel, toggleEditorBtn, showEditor);
-      togglePanel(previewPanel, togglePreviewBtn, showPreview);
-    }
-  }
+  log('LOADED: ' + source, 'info');
+}
+
+function showError(msg) {
+  errorMsg.textContent = '! ' + msg;
+  errorMsg.classList.add('show');
+  log(msg, 'error');
 }
 
 function log(msg, type) {
@@ -367,12 +337,6 @@ function log(msg, type) {
   applyFilters();
 }
 
-function showError(msg) {
-  errorMsg.textContent = '! ' + msg;
-  errorMsg.classList.add('show');
-  log(msg, 'error');
-}
-
 function processFile(file) {
   if (!file.name.match(/\.html?$/i)) {
     showError('INVALID FILE: .html ONLY');
@@ -380,58 +344,72 @@ function processFile(file) {
   }
   fileName.textContent = file.name;
   const reader = new FileReader();
-  reader.onload = e => {
-    editor.value = e.target.result;
-    updateLineCount();
-    log('LOADED: ' + file.name, 'info');
-    runCode();runCode();
-  };
+  reader.onload = e => loadHTML(e.target.result, file.name);
   reader.onerror = () => showError('READ ERROR');
   reader.readAsText(file);
 }
 
-editor.addEventListener('input', updateLineCount);
-
-editor.addEventListener('keydown', e => {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
-    editor.selectionStart = editor.selectionEnd = start + 2;
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault(); runCode();
-  }
-});
-
-runBtn.addEventListener('click', runCode);
-resetBtn.addEventListener('click', () => {
-  editor.value = '';///DEFAULT_CODE
-  fileName.textContent = '';
-  updateLineCount();
-  if (!showEditor) togglePanel(editorPanel, toggleEditorBtn, showEditor);
-  if (showPreview) togglePanel(previewPanel, togglePreviewBtn, showPreview);
-  runCode();
-});
-
-copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(editor.value).then(() => {
-    copyBtn.textContent = '[DONE]';
-    log('COPY COMPLETE', 'success');
-    setTimeout(() => { copyBtn.textContent = '[COPY]'; }, 2000);
-  }).catch(() => showError('COPY FAILED'));
-});
+function loadURL(url) {
+  if (!url.trim()) return;
+  const fullURL = url.match(/^https?:\/\//) ? url : 'https://' + url;
+  log('FETCHING: ' + fullURL, 'info');
+  fetch(fullURL)
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(html => {
+      loadHTML(html, fullURL);
+      urlInput.value = fullURL;
+    })
+    .catch(err => showError('FETCH ERROR: ' + err.message));
+}
 
 fileInput.addEventListener('change', () => {
   const f = fileInput.files[0];
   if (f) processFile(f);
 });
 
-document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault(); runCode();
+urlGoBtn.addEventListener('click', () => loadURL(urlInput.value));
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadURL(urlInput.value);
+});
+
+document.addEventListener('dragenter', e => {
+  e.preventDefault();
+  dragCounter++;
+  if (dragCounter === 1) dropOverlay.classList.add('show');
+});
+
+document.addEventListener('dragleave', e => {
+  e.preventDefault();
+  dragCounter--;
+  if (dragCounter === 0) dropOverlay.classList.remove('show');
+});
+
+document.addEventListener('dragover', e => e.preventDefault());
+
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dragCounter = 0;
+  dropOverlay.classList.remove('show');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    const file = files[0];
+    if (file.name.match(/\.html?$/i)) {
+      processFile(file);
+    } else {
+      const urlData = e.dataTransfer.getData('text/uri-list');
+      if (urlData) {
+        loadURL(urlData.trim());
+      } else {
+        showError('DROP .html FILE ONLY');
+      }
+    }
   }
+});
+
+document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
     e.preventDefault(); fileInput.click();
   }
@@ -458,8 +436,6 @@ updateClock();
 setInterval(updateClock, 1000);
 
 buildFilters();
-updateLineCount();
-runCode();
 </script>
 </body>
 </html>
