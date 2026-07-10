@@ -61,15 +61,6 @@ body {
 .upload-label input { display: none; }
 #fileName { color: #000; font-size: 0.65rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .7; margin-left: 4px; padding: 2px 6px; border: 1px dashed #000; }
 
-.url-input {
-  font-family: 'Courier New', monospace;
-  font-size: 0.65rem; padding: 4px 8px;
-  border: 2px solid #000; background: #fff;
-  color: #000; outline: none; width: 180px;
-}
-.url-input:focus { background: #fff; }
-.url-input::placeholder { color: #000; opacity: .3; text-transform: uppercase; }
-
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
 .preview-panel { display: flex; flex-direction: column; flex: 1; }
@@ -97,22 +88,6 @@ body {
   font-weight: bold;
 }
 .error-msg.show { display: block; }
-
-.drop-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.85);
-  display: none; align-items: center; justify-content: center;
-  z-index: 1000; flex-direction: column; gap: 16px;
-}
-.drop-overlay.show { display: flex; }
-.drop-overlay .drop-icon {
-  font-size: 48px; color: #fff; opacity: .5;
-  border: 4px dashed #fff; padding: 32px 64px;
-}
-.drop-overlay .drop-text {
-  font-size: 1rem; color: #fff; text-transform: uppercase;
-  letter-spacing: 2px; font-weight: bold;
-}
 
 dialog {
   border: 3px double #000; background: #fff; padding: 0;
@@ -165,8 +140,6 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
   <button class="btn outline" id="logBtn">[LOG]</button>
   <label class="upload-label">[LOAD]<input type="file" id="fileInput" accept=".html,.htm"></label>
   <span id="fileName"></span>
-  <input style="display: none;" type="text" class="url-input" id="urlInput" placeholder="URL...">
-  <button style="display: none;" class="btn" id="urlGoBtn">&gt; GO</button>
   <span style="flex:1"></span>
 </div>
 
@@ -189,11 +162,6 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
       </iframe>
     </div>
   </div>
-</div>
-
-<div class="drop-overlay" id="dropOverlay">
-  <div class="drop-icon">&#9733;</div>
-  <div class="drop-text">DROP HTML FILE HERE</div>
 </div>
 
 <div class="statusbar">
@@ -219,8 +187,6 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 const preview = document.getElementById('preview');
 const fileInput = document.getElementById('fileInput');
 const fileName = document.getElementById('fileName');
-const urlInput = document.getElementById('urlInput');
-const urlGoBtn = document.getElementById('urlGoBtn');
 const errorMsg = document.getElementById('errorMsg');
 const statusTime = document.getElementById('statusTime');
 const logBtn = document.getElementById('logBtn');
@@ -230,13 +196,9 @@ const logCount = document.getElementById('logCount');
 const clearLogBtn = document.getElementById('clearLogBtn');
 const closeLogBtn = document.getElementById('closeLogBtn');
 const logFilters = document.getElementById('logFilters');
-const dropOverlay = document.getElementById('dropOverlay');
-
 const LOG_TYPES = ['error', 'info', 'success'];
 const filterState = {};
 LOG_TYPES.forEach(t => filterState[t] = true);
-
-let dragCounter = 0;
 
 function buildFilters() {
   logFilters.innerHTML = '';
@@ -349,70 +311,9 @@ function processFile(file) {
   reader.readAsText(file);
 }
 
-function loadURL(url) {
-  if (!url.trim()) return;
-  const fullURL = url.match(/^https?:\/\//) ? url : 'https://' + url;
-  log('FETCHING: ' + fullURL, 'info');
-  fetch(fullURL)
-    .then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.text();
-    })
-    .then(html => {
-      loadHTML(html, fullURL);
-      urlInput.value = fullURL;
-    })
-    .catch(err => showError('FETCH ERROR: ' + err.message));
-}
-
 fileInput.addEventListener('change', () => {
   const f = fileInput.files[0];
   if (f) processFile(f);
-});
-
-urlGoBtn.addEventListener('click', () => loadURL(urlInput.value));
-urlInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') loadURL(urlInput.value);
-});
-
-document.addEventListener('dragenter', e => {
-  e.preventDefault();
-  dragCounter++;
-  if (dragCounter === 1) dropOverlay.classList.add('show');
-});
-
-document.addEventListener('dragleave', e => {
-  e.preventDefault();
-  dragCounter--;
-  if (dragCounter === 0) dropOverlay.classList.remove('show');
-});
-
-document.addEventListener('dragover', e => e.preventDefault());
-
-document.addEventListener('drop', e => {
-  e.preventDefault();
-  dragCounter = 0;
-  dropOverlay.classList.remove('show');
-  const files = e.dataTransfer.files;
-  if (files.length > 0) {
-    const file = files[0];
-    if (file.name.match(/\.html?$/i)) {
-      processFile(file);
-    } else {
-      const urlData = e.dataTransfer.getData('text/uri-list');
-      if (urlData) {
-        loadURL(urlData.trim());
-      } else {
-        showError('DROP .html FILE ONLY');
-      }
-    }
-  }
-});
-
-document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-    e.preventDefault(); fileInput.click();
-  }
 });
 
 window.addEventListener('message', function (e) {
