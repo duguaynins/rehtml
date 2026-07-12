@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nins/ReHTML</title>
 
+
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#FFFFFF">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+
+
+
     <!-- 載入 Ace 編輯器主核心與擴充功能 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.35.4/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.35.4/ext-language_tools.min.js"></script>
