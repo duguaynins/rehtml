@@ -1,342 +1,402 @@
 <!DOCTYPE html>
 <html lang="auto">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nins / HTML.SYS</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nins/ReHTML</title>
 
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#FFFFFF">
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}
-</script>
+    <!-- 載入 Ace 編輯器主核心與擴充功能 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.35.4/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.35.4/ext-language_tools.min.js"></script>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Courier New', 'Consolas', monospace;
-  background: #fff; color: #000; height: 100vh; display: flex; flex-direction: column;
-  cursor: default;
-}
-::selection { background: #000; color: #fff; }
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #eee; }
-::-webkit-scrollbar-thumb { background: #000; border-radius: 0; }
+    <!-- 載入 NES.css 與 8-bit Google 像素字型 -->
+    <link rel="stylesheet" href="https://unpkg.com/nes.css/css/nes.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
-.toolbar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px; background: #fff;
-  border-bottom: 3px double #000; flex-wrap: wrap;
-  position: sticky; top: 0; z-index: 10;
-}
-.toolbar h1 {
-  font-size: 0.75rem; color: #000; margin-right: 8px;
-  letter-spacing: 2px; text-transform: uppercase;
-  padding: 2px 6px; border: 1px solid #000;
-}
-.toolbar .cursor-blink { animation: blink 1s step-end infinite; }
-@keyframes blink { 50% { opacity: 0; } }
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Press Start 2P', monospace;
+            background: #212529; /* NES.css 預設暗色背景 */
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
 
-.btn {
-  background: #fff; color: #000; border: 2px solid #000;
-  padding: 5px 12px; cursor: pointer; font-size: 0.7rem;
-  font-family: 'Courier New', monospace;
-  text-transform: uppercase; letter-spacing: 1px;
-  transition: none; font-weight: bold;
-}
-.btn:hover { background: #000; color: #fff; }
-.btn:active { background: #333; }
-.btn.outline { opacity: .7; }
-.btn.outline:hover { opacity: 1; background: #000; color: #fff; }
+        /* 讓編輯器佔滿整個螢幕 */
+        #editor {
+            width: 100%;
+            height: 100%;
+        }
 
-.upload-label {
-  color: #000; font-size: 0.7rem; cursor: pointer;
-  padding: 5px 10px; border: 2px solid #000; opacity: .7;
-  text-transform: uppercase; letter-spacing: 1px; font-weight: bold;
-}
-.upload-label:hover { opacity: 1; background: #000; color: #fff; }
-.upload-label input { display: none; }
-#fileName { color: #000; font-size: 0.65rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .7; margin-left: 4px; padding: 2px 6px; border: 1px dashed #000; }
+        /* 左下角懸浮控制按鈕 - 經典 NES 綠色按鈕 */
+        #toggle-menu-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px; /* 初始在左邊 */
+            right: auto;
+            z-index: 10000;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            /* 加入平移與左右位置變更的過場動畫 */
+            transition: transform 0.3s ease-in-out, left 0.3s ease-in-out, right 0.3s ease-in-out;
+        }
+        #toggle-menu-btn.up {
+            transform: translateY(-75px);
+        }
 
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        /* 底部彈出工具列 */
+        #toolbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 75px;
+            background: #212529;
+            border-top: 4px solid #fff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; 
+            gap: 15px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 9999;
+            
+            /* 預設完全隱藏在螢幕下方 */
+            transform: translateY(75px);
+            transition: transform 0.3s ease-in-out;
+        }
 
-.preview-panel { display: flex; flex-direction: column; flex: 1; }
-.panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; background: #e8e8e8; border-bottom: 2px solid #000;
-  font-size: 0.7rem; color: #000; text-transform: uppercase; letter-spacing: 1px;
-  font-weight: bold;
-}
-#preview { flex: 1; background: #fff; border: none; }
+        /* 當工具列被激活時歸位 */
+        #toolbar.active {
+            transform: translateY(0);
+        }
 
-.statusbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; background: #e8e8e8;
-  border-top: 3px double #000;
-  font-size: 0.65rem; color: #000; text-transform: uppercase; letter-spacing: 1px;
-  font-weight: bold;
-}
-.statusbar .blink { animation: blink 1s step-end infinite; }
+        /* NES 樣式微調 */
+        .nes-select select {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            height: 45px;
+        }
+        
+        .nes-btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            height: 45px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-.error-msg {
-  display: none; padding: 8px 12px;
-  background: #fff; color: #000;
-  font-size: 0.7rem; border-bottom: 3px double #000;
-  font-weight: bold;
-}
-.error-msg.show { display: block; }
+        /* 隱藏原生檔案輸入框 */
+        #openFile {
+            display: none;
+        }
 
-dialog {
-  border: 3px double #000; background: #fff; padding: 0;
-  min-width: 360px; max-width: 500px; width: 90%;
-  font-family: 'Courier New', monospace; color: #000;
-}
-dialog::backdrop { background: rgba(0,0,0,0.7); }
-.dialog-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; background: #000; color: #fff;
-  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;
-}
-.dialog-body {
-  padding: 12px; max-height: 300px; overflow-y: auto;
-  font-size: 0.75rem; line-height: 1.6;
-}
-.dialog-filters {
-  display: flex; gap: 4px; flex-wrap: wrap;
-  padding: 6px 12px; border-bottom: 1px solid #000;
-  font-size: 0.65rem;
-}
-.filter-tag {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border: 1px solid #000; cursor: pointer;
-  text-transform: uppercase; letter-spacing: 1px;
-  user-select: none;
-}
-.filter-tag.hidden { opacity: .35; text-decoration: line-through; }
-.filter-tag:hover { background: #000; color: #fff; }
-.dialog-footer {
-  display: flex; gap: 6px; justify-content: flex-end;
-  padding: 8px 12px; border-top: 2px solid #000;
-}
-.log-entry { margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; }
-.log-entry.error { color: #000; font-weight: bold; }
-.log-entry.error::before { content: '! '; }
-.log-entry.info { color: #000; opacity: .7; }
-.log-entry.info::before { content: '> '; }
-.log-entry.success { color: #000; }
-.log-entry.success::before { content: 'OK '; }
+        /* REVIEW: iframe 全螢幕預覽 */
+        #preview-frame {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            z-index: 1;
+            background: white;
+        }
 
-@media (min-width: 768px) {
-  .toolbar h1 { font-size: 0.85rem; }
-}
-</style>
+        /* LOG: console 輸出面板 */
+        #log-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            color: #FFFFFF;/*#00ff00*/
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-y: auto;
+            z-index: 1;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        #log-output {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
 </head>
 <body>
-<div class="toolbar">
-  <h1>C:\&gt;<span class="cursor-blink">&#9608;</span></h1>
-  <button class="btn outline" id="logBtn">[LOG]</button>
-  <label class="upload-label">[LOAD]<input type="file" id="fileInput" accept=".html,.htm"></label>
-  <span id="fileName"></span>
-  <span style="flex:1"></span>
-</div>
 
-<div class="error-msg" id="errorMsg">ERROR</div>
-<div class="main">
-  <div class="preview-panel">
-    <div class="panel-header"><span>&#62; PREVIEW</span></div>
-    <div style="padding:20px; width:100%; height:100%; background: #000;">
-      <iframe 
-          id="preview"
-          style="
-              width:100%;
-              height:100%;
-              border:8px solid #CCC;
-              border-top-width:5px;
-              border-right-width:22px;
-              border-bottom-width:5px;
-              border-left-width:22px;
-          ">
-      </iframe>
+<!-- 左下角控制按鈕 (預設使用 nes-btn is-success 綠色) -->
+<button id="toggle-menu-btn" class="nes-btn is-success" onclick="toggleToolbar()">MENU</button>
+
+<!-- 底部彈出工具列 -->
+<div id="toolbar">
+    <!-- MODE 切換: EDIT / REVIEW / LOG -->
+    <div class="nes-select is-dark" style="width: 130px; margin-bottom: 0;">
+        <select id="mode" onchange="changeViewMode()">
+            <option value="edit">EDIT</option>
+            <option value="review">REVIEW</option>
+            <option value="log">LOG</option>
+        </select>
     </div>
-  </div>
+
+    <!-- 匯入檔案按鈕 -->
+    <label for="openFile" class="nes-btn is-primary" style="margin-bottom: 0;">IMPORT</label>
+    <input type="file" id="openFile" onchange="openFile()">
+
+    <!-- 下載檔案按鈕 -->
+    <button class="nes-btn" style="margin-bottom: 0;" onclick="downloadFile()">DOWNLOAD</button>
 </div>
 
-<div class="statusbar">
-  <span>&gt; READY</span>
-  <span>DOS HTML VIEWER v1.0</span>
-  <span id="statusTime"></span>
-</div>
+<!-- 編輯器區塊 -->
+<div id="editor"></div>
 
-<dialog id="logDialog">
-  <div class="dialog-header">
-    <span>C:\&gt; LOG</span>
-    <span id="logCount">0</span>
-  </div>
-  <div class="dialog-filters" id="logFilters"></div>
-  <div class="dialog-body" id="logContent"></div>
-  <div class="dialog-footer">
-    <button class="btn outline" id="clearLogBtn">[CLEAR]</button>
-    <button class="btn" id="closeLogBtn">[X]</button>
-  </div>
-</dialog>
+<!-- REVIEW: iframe 預覽 -->
+<iframe id="preview-frame" style="display:none;"></iframe>
+
+<!-- LOG: console 輸出面板 -->
+<div id="log-panel" style="display:none;">
+    <div id="log-output"></div>
+</div>
 
 <script>
-const preview = document.getElementById('preview');
-const fileInput = document.getElementById('fileInput');
-const fileName = document.getElementById('fileName');
-const errorMsg = document.getElementById('errorMsg');
-const statusTime = document.getElementById('statusTime');
-const logBtn = document.getElementById('logBtn');
-const logDialog = document.getElementById('logDialog');
-const logContent = document.getElementById('logContent');
-const logCount = document.getElementById('logCount');
-const clearLogBtn = document.getElementById('clearLogBtn');
-const closeLogBtn = document.getElementById('closeLogBtn');
-const logFilters = document.getElementById('logFilters');
-const LOG_TYPES = ['error', 'info', 'success'];
-const filterState = {};
-LOG_TYPES.forEach(t => filterState[t] = true);
+    // 1. 初始化 Ace 編輯器
+    const editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.setFontSize(16);
 
-function buildFilters() {
-  logFilters.innerHTML = '';
-  LOG_TYPES.forEach(t => {
-    const tag = document.createElement('span');
-    tag.className = 'filter-tag';
-    tag.textContent = t;
-    tag.dataset.type = t;
-    tag.addEventListener('click', () => {
-      filterState[t] = !filterState[t];
-      tag.classList.toggle('hidden', !filterState[t]);
-      applyFilters();
+    // 2. 啟用自動完成提示
+    editor.setOptions({
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        enableSnippets: true
     });
-    logFilters.appendChild(tag);
-  });
-}
 
-function applyFilters() {
-  logContent.querySelectorAll('.log-entry').forEach(el => {
-    const type = el.dataset.logType;
-    el.style.display = filterState[type] ? '' : 'none';
-  });
-}
+    // 3. 預設初始內容
+    /*
+    const defaultCode = `# 8-BIT ACE EDITOR
+# [AUTO-SAVE: ON]
 
-window.onerror = function (msg, url, line, col, err) {
-  const info = (url ? url.split('/').pop() + ':' + line : '') + ' ' + msg;
-  log('[SYSTEM] ' + info, 'error');
-};
+def start_game():
+    print("WELCOME TO THE NES WORLD!")
+`;*/
+    const defaultCode = `<!DOCTYPE html>
+<html>
+<head>
+    <title>nins/Editor</title>
+</head>
+<body>
+    <h1>Hello, World.</h1>
+</body>
+</html>`;
 
-window.addEventListener('unhandledrejection', function (e) {
-  log('[PROMISE] ' + (e.reason.message || e.reason), 'error');
-});
-
-const origConsoleError = console.error;
-const origConsoleWarn = console.warn;
-console.error = function () {
-  log('[CONSOLE] ' + Array.from(arguments).join(' '), 'error');
-  origConsoleError.apply(console, arguments);
-};
-console.warn = function () {
-  log('[CONSOLE] ' + Array.from(arguments).join(' '), 'info');
-  origConsoleWarn.apply(console, arguments);
-};
-
-function addBodyPadding(html) {
-  return html.replace(/<body([^>]*)>/i, (m, attrs) => {
-    const m2 = attrs.match(/style\s*=\s*(["'])(.*?)\1/i);
-    if (m2) {
-      const q = m2[1], val = m2[2];
-      return m.replace(m2[0], 'style=' + q + val + ';padding:16px' + q);
+    // 4. 載入暫存或預設內容
+    let oldCode = localStorage.getItem("ace_code");
+    if (oldCode) {
+        editor.setValue(oldCode, -1);
+    } else {
+        editor.setValue(defaultCode, -1);
     }
-    return '<body' + attrs + ' style="padding:16px">';
-  });
-}
+    editor.session.setMode("ace/mode/html");
+    editor.session.setUseWorker(false);
+    document.getElementById("mode").value = "edit";
+    changeViewMode();
 
-function loadHTML(content, source) {
-  let injected = content.includes('</head>')
-    ? content.replace('</head>', `<script>
-window.onerror = function(m, u, l) {
-  parent.postMessage({ type: 'preview-error', msg: m + ' (line ' + l + ')' }, '*');
-};
-window.addEventListener('unhandledrejection', function(e) {
-  parent.postMessage({ type: 'preview-error', msg: 'Promise: ' + (e.reason.message||e.reason) }, '*');
-});
-<\/script></head>`)
-    : '<script>' +
-`window.onerror = function(m, u, l) {
-  parent.postMessage({ type: 'preview-error', msg: m + ' (line ' + l + ')' }, '*');
-};
-window.addEventListener('unhandledrejection', function(e) {
-  parent.postMessage({ type: 'preview-error', msg: 'Promise: ' + (e.reason.message||e.reason) }, '*');
-};` + '<\/script>' + content;
-  injected = addBodyPadding(injected);
-  try {
-    preview.srcdoc = injected;
-    errorMsg.classList.remove('show');
-  } catch (e) {
-    showError('EXECUTION ERROR: ' + e.message);
-  }
-  log('LOADED: ' + source, 'info');
-}
+    let capturedLogs = '';
+    let _origLog, _origWarn, _origError;
 
-function showError(msg) {
-  errorMsg.textContent = '! ' + msg;
-  errorMsg.classList.add('show');
-  log(msg, 'error');
-}
+    // 隨時捕捉 console 輸出
+    captureConsole();
 
-function log(msg, type) {
-  type = type || 'info';
-  const entry = document.createElement('div');
-  entry.className = 'log-entry ' + type;
-  entry.dataset.logType = type;
-  entry.textContent = msg;
-  logContent.appendChild(entry);
-  logContent.scrollTop = logContent.scrollHeight;
-  logCount.textContent = logContent.children.length;
-  applyFilters();
-}
+    // ⚡ 自動儲存監聽
+    editor.on("input", function() {
+        localStorage.setItem("ace_code", editor.getValue());
+    });
 
-function processFile(file) {
-  if (!file.name.match(/\.html?$/i)) {
-    showError('INVALID FILE: .html ONLY');
-    return;
-  }
-  fileName.textContent = file.name;
-  const reader = new FileReader();
-  reader.onload = e => loadHTML(e.target.result, file.name);
-  reader.onerror = () => showError('READ ERROR');
-  reader.readAsText(file);
-}
+    // 用來記錄下一次關閉選單時按鈕應該去哪邊 (預設下一次去右邊)
+    let nextPosition = "right";
 
-fileInput.addEventListener('change', () => {
-  const f = fileInput.files[0];
-  if (f) processFile(f);
-});
+    // 🛠️ 處理選單開關與按鈕左右飄移的邏輯
+    function toggleToolbar() {
+        const toolbar = document.getElementById("toolbar");
+        const btn = document.getElementById("toggle-menu-btn");
+        
+        // 切換工具列狀態與按鈕往上平移
+        toolbar.classList.toggle("active");
+        btn.classList.toggle("up");
+        
+        if (btn.classList.contains("up")) {
+            // 【展開選單時】
+            btn.innerHTML = "CLOSE";
+            btn.classList.remove("is-success");
+            btn.classList.add("is-error"); // 變紅色
+            
+            // 展開時固定在目前那一側的上方，不打亂使用者點擊焦點
+        } else {
+            // 【關閉選單時】
+            btn.innerHTML = "MENU";
+            btn.classList.remove("is-error");
+            btn.classList.add("is-success"); // 變回綠色
+            
+            // 根據 nextPosition 決定按鈕降落在哪一邊，並切換下一次的方向
+            if (nextPosition === "right") {
+                btn.style.left = "auto";
+                btn.style.right = "20px";
+                nextPosition = "left"; // 下一次點擊關閉時去左邊
+            } else {
+                btn.style.right = "auto";
+                btn.style.left = "20px";
+                nextPosition = "right"; // 下一次點擊關閉時去右邊
+            }
+        }
+    }
 
-window.addEventListener('message', function (e) {
-  if (e.data && e.data.type === 'preview-error') {
-    showError('[PREVIEW] ' + e.data.msg);
-  }
-});
+    // 攔截 iframe 內部的 console
+    function captureIframeConsole(iframeWin) {
+        iframeWin.console.log = function(...args) {
+            const line = '[LOG---IFRAME] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ') + '\n';
+            capturedLogs += line;
+        };
+        iframeWin.console.warn = function(...args) {
+            const line = '[WARN--IFRAME] ' + args.map(a => String(a)).join(' ') + '\n';
+            capturedLogs += line;
+        };
+        iframeWin.console.error = function(...args) {
+            const line = '[ERROR-IFRAME] ' + args.map(a => String(a)).join(' ') + '\n';
+            capturedLogs += line;
+        };
+    }
 
-logBtn.addEventListener('click', () => logDialog.showModal());
-clearLogBtn.addEventListener('click', () => {
-  logContent.innerHTML = '';
-  logCount.textContent = '0';
-});
-closeLogBtn.addEventListener('click', () => logDialog.close());
+    // MODE 切換: EDIT / REVIEW / LOG
+    function changeViewMode() {
+        const mode = document.getElementById("mode").value;
+        const preview = document.getElementById("preview-frame");
+        const logPanel = document.getElementById("log-panel");
+        const editorEl = document.getElementById("editor");
 
-function updateClock() {
-  const now = new Date();
-  statusTime.textContent = now.toLocaleTimeString('zh-TW', { hour12: false });
-}
-updateClock();
-setInterval(updateClock, 1000);
+        preview.style.display = "none";
+        logPanel.style.display = "none";
+        editorEl.style.display = "block";
+        editor.setReadOnly(false);
 
-buildFilters();
+        if (mode === "edit") {
+            editor.setReadOnly(false);
+        } else if (mode === "review") {
+            editor.setReadOnly(true);
+            editorEl.style.display = "none";
+            preview.style.display = "block";
+
+            ///capturedLogs = ''; 
+            ///capturedLogs = '[SYSTEM] REVIEW...\n'; 
+            capturedLogs += '[REVIEW] ...\n'; 
+            ///document.getElementById('log-output').textContent = '[SYSTEM] No logs yet.';
+            captureIframeConsole(preview.contentWindow);
+            const doc = preview.contentWindow.document;
+            doc.open();
+            doc.write(editor.getValue());
+            doc.close();
+            ///document.getElementById('logContent').innerHTML = '';
+            ///document.getElementById('logCount').textContent = '0';
+            
+        } else if (mode === "log") {
+            editor.setReadOnly(true);
+            editorEl.style.display = "none";
+            logPanel.style.display = "block";
+            document.getElementById("log-output").textContent = capturedLogs || '[SYSTEM] No logs yet.';  /// Import a file to run.
+        }
+    }
+
+    // 攔截 console 輸出
+    function captureConsole() {
+        capturedLogs = '';
+        _origLog = console.log;
+        _origWarn = console.warn;
+        _origError = console.error;
+
+        console.log = function(...args) {
+            const line = '[LOG] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ') + '\n';
+            capturedLogs += line;
+            _origLog.apply(console, args);
+        };
+        console.warn = function(...args) {
+            const line = '[WARN] ' + args.map(a => String(a)).join(' ') + '\n';
+            capturedLogs += line;
+            _origWarn.apply(console, args);
+        };
+        console.error = function(...args) {
+            const line = '[ERROR] ' + args.map(a => String(a)).join(' ') + '\n';
+            capturedLogs += line;
+            _origError.apply(console, args);
+        };
+    }
+
+    function restoreConsole() {
+        if (_origLog) {
+            console.log = _origLog;
+            console.warn = _origWarn;
+            console.error = _origError;
+            _origLog = null;
+        }
+    }
+
+    // 匯入並開啟檔案（寫入 iframe 執行，攔截 console）
+    function openFile(){
+        let file = document.getElementById("openFile").files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = function(){
+            const code = reader.result;
+            editor.setValue(code, -1);
+            document.getElementById("mode").value = "edit";
+            changeViewMode();
+
+            // 寫入 iframe 執行 HTML，攔截 console
+            capturedLogs = '';
+            const preview = document.getElementById("preview-frame");
+            captureIframeConsole(preview.contentWindow);
+            const doc = preview.contentWindow.document;
+            doc.open();
+            doc.write(code);
+            doc.close();
+
+            toggleToolbar();
+        };
+        reader.readAsText(file);
+    }
+
+    // 副檔名對應 MIME Type
+    function mimeType(name){
+        return "text/html";
+    }
+
+    // 下載檔案
+    function downloadFile(){
+        let filename = `nins_edit_${Date.now()}.html`;
+
+        let blob = new Blob([editor.getValue()], { type: "text/html" });
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        
+        URL.revokeObjectURL(a.href);
+        toggleToolbar();
+        localStorage.removeItem("ace_code");
+        editor.setReadOnly(true);
+        editor.container.style.backgroundColor = "#CCCCCC";
+    }
+
+    toggleToolbar();
 </script>
+
+
+
 </body>
 </html>
