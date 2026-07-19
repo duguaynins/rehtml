@@ -381,6 +381,8 @@ def start_game():
             toggleToolbar();
         };
         reader.readAsText(file);
+        editor.setReadOnly(false);
+        editor.container.style.backgroundColor = "#FFFFFF";
     }
 
     // 副檔名對應 MIME Type
